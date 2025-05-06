@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,6 +51,8 @@ const Home = () => {
                 onSuccess={handleGoogleSuccess}
                 onError={handleGoogleError}
                 useOneTap
+                auto_select
+                context="signin"
               />
             </div>
           </div>

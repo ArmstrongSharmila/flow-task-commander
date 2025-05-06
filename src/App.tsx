@@ -20,8 +20,8 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Replace this with your actual Google OAuth Client ID
-const clientId = "YOUR_GOOGLE_CLIENT_ID";
+// Using the provided Google OAuth Client ID
+const clientId = "107470327979-nj7qgoki4o3fsdtrpb1b9krg5prbrage.apps.googleusercontent.com";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
