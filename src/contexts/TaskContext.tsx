@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
+import * as apiService from '../services/api';
 
 export interface Task {
   id: string;
@@ -19,6 +20,8 @@ interface TaskContextType {
   updateTask: (id: string, updatedTask: Partial<Task>) => void;
   deleteTask: (id: string) => void;
   getTask: (id: string) => Task | undefined;
+  isLoading: boolean;
+  error: string | null;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -36,44 +39,103 @@ interface TaskProviderProps {
 }
 
 export const TaskProvider = ({ children }: TaskProviderProps) => {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    // Load from localStorage on initialization
-    const savedTasks = localStorage.getItem('tasks');
-    return savedTasks ? JSON.parse(savedTasks) : getSampleTasks();
-  });
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch tasks from API on component mount
+  useEffect(() => {
+    const fetchTasksData = async () => {
+      try {
+        setIsLoading(true);
+        const tasksData = await apiService.fetchTasks();
+        setTasks(tasksData);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching tasks:', err);
+        setError('Failed to fetch tasks');
+        // If API fails, load from localStorage as fallback
+        const savedTasks = localStorage.getItem('tasks');
+        if (savedTasks) {
+          setTasks(JSON.parse(savedTasks));
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTasksData();
+  }, []);
 
   // Update localStorage whenever tasks change
   useEffect(() => {
     localStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  const addTask = (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    const newTask: Task = {
-      ...task,
-      id: `task-${Date.now()}`,
-      createdAt: now,
-      updatedAt: now,
-    };
-    
-    setTasks(prevTasks => [...prevTasks, newTask]);
-    toast.success('Task created successfully!');
+  const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      setIsLoading(true);
+      const newTask = await apiService.createTask(task);
+      setTasks(prevTasks => [...prevTasks, newTask]);
+      toast.success('Task created successfully!');
+    } catch (err) {
+      console.error('Error creating task:', err);
+      toast.error('Failed to create task');
+      
+      // Fallback: create task locally if API fails
+      const now = new Date().toISOString();
+      const localTask: Task = {
+        ...task,
+        id: `task-${Date.now()}`,
+        createdAt: now,
+        updatedAt: now,
+      };
+      setTasks(prevTasks => [...prevTasks, localTask]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const updateTask = (id: string, updatedTask: Partial<Task>) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === id
-          ? { ...task, ...updatedTask, updatedAt: new Date().toISOString() }
-          : task
-      )
-    );
-    toast.success('Task updated successfully!');
+  const updateTask = async (id: string, updatedTask: Partial<Task>) => {
+    try {
+      setIsLoading(true);
+      const updated = await apiService.updateTask(id, updatedTask);
+      setTasks(prevTasks =>
+        prevTasks.map(task => (task.id === id ? updated : task))
+      );
+      toast.success('Task updated successfully!');
+    } catch (err) {
+      console.error('Error updating task:', err);
+      toast.error('Failed to update task');
+      
+      // Fallback: update locally if API fails
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.id === id
+            ? { ...task, ...updatedTask, updatedAt: new Date().toISOString() }
+            : task
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const deleteTask = (id: string) => {
-    setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
-    toast.success('Task deleted successfully!');
+  const deleteTask = async (id: string) => {
+    try {
+      setIsLoading(true);
+      await apiService.deleteTask(id);
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+      toast.success('Task deleted successfully!');
+    } catch (err) {
+      console.error('Error deleting task:', err);
+      toast.error('Failed to delete task');
+      
+      // Fallback: delete locally if API fails
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getTask = (id: string) => {
@@ -86,49 +148,9 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
     updateTask,
     deleteTask,
     getTask,
+    isLoading,
+    error,
   };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
 };
-
-// Sample tasks for initial demo
-function getSampleTasks(): Task[] {
-  const now = new Date().toISOString();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const nextWeek = new Date();
-  nextWeek.setDate(nextWeek.getDate() + 7);
-  
-  return [
-    {
-      id: 'task-1',
-      title: 'Design Task Management Dashboard',
-      description: 'Create wireframes and mockups for the task management dashboard with focus on user experience.',
-      deadline: tomorrow.toISOString().split('T')[0],
-      assignedTo: 'Sarah Johnson',
-      status: 'In Progress',
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: 'task-2',
-      title: 'Implement User Authentication',
-      description: 'Set up Google OAuth 2.0 authentication for the application.',
-      deadline: nextWeek.toISOString().split('T')[0],
-      assignedTo: 'Michael Chen',
-      status: 'Pending',
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: 'task-3',
-      title: 'Create PDF Report Generator',
-      description: 'Develop functionality to export tasks as PDF reports with proper formatting.',
-      deadline: nextWeek.toISOString().split('T')[0],
-      assignedTo: 'Alex Rodriguez',
-      status: 'Pending',
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-}

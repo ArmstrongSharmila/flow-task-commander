@@ -7,10 +7,10 @@ import TaskFilter from '../components/TaskFilter';
 import PDFGenerator from '../components/PDFGenerator';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 
 const TasksList = () => {
-  const { tasks, deleteTask } = useTask();
+  const { tasks, deleteTask, isLoading, error } = useTask();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('deadline-asc');
@@ -74,7 +74,18 @@ const TasksList = () => {
           setSortBy={setSortBy}
         />
         
-        {filteredTasks.length > 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary-purple" />
+            <span className="ml-2 text-lg">Loading tasks...</span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <h3 className="text-xl font-medium text-red-600 mb-2">Error loading tasks</h3>
+            <p className="text-gray-500">{error}</p>
+            <p className="text-sm mt-2">Showing tasks from local storage as fallback</p>
+          </div>
+        ) : filteredTasks.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTasks.map((task) => (
               <TaskCard key={task.id} task={task} onDelete={deleteTask} />

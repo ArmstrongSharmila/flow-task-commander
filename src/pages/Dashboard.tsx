@@ -8,11 +8,11 @@ import TaskCard from '../components/TaskCard';
 import PDFGenerator from '../components/PDFGenerator';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const { tasks, deleteTask } = useTask();
+  const { tasks, deleteTask, isLoading, error } = useTask();
   
   // Get recent tasks (up to 5)
   const recentTasks = [...tasks]
@@ -24,6 +24,17 @@ const Dashboard = () => {
     .filter(task => task.status !== 'Completed' && new Date(task.deadline) > new Date())
     .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
     .slice(0, 4);
+  
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-purple" />
+          <span className="ml-2 text-lg">Loading dashboard...</span>
+        </div>
+      </Layout>
+    );
+  }
   
   return (
     <Layout>
@@ -42,6 +53,14 @@ const Dashboard = () => {
             </Button>
           </div>
         </div>
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 text-red-800">
+            <h3 className="font-medium">Error loading tasks</h3>
+            <p className="text-sm">{error}</p>
+            <p className="text-xs mt-1">Showing tasks from local storage as fallback</p>
+          </div>
+        )}
         
         <TaskStats tasks={tasks} />
         
