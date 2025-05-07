@@ -16,12 +16,13 @@ export interface Task {
 
 interface TaskContextType {
   tasks: Task[];
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateTask: (id: string, updatedTask: Partial<Task>) => void;
-  deleteTask: (id: string) => void;
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateTask: (id: string, updatedTask: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
   getTask: (id: string) => Task | undefined;
   isLoading: boolean;
   error: string | null;
+  refreshTasks: () => Promise<void>;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -43,27 +44,29 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchTasksData = async () => {
+    try {
+      setIsLoading(true);
+      const tasksData = await apiService.fetchTasks();
+      setTasks(tasksData);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      setError('Failed to fetch tasks. Please check if the server is running.');
+      
+      // If API fails, load from localStorage as fallback
+      const savedTasks = localStorage.getItem('tasks');
+      if (savedTasks) {
+        setTasks(JSON.parse(savedTasks));
+        toast.error('Using cached tasks. Connect to the backend for the latest data.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Fetch tasks from API on component mount
   useEffect(() => {
-    const fetchTasksData = async () => {
-      try {
-        setIsLoading(true);
-        const tasksData = await apiService.fetchTasks();
-        setTasks(tasksData);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching tasks:', err);
-        setError('Failed to fetch tasks');
-        // If API fails, load from localStorage as fallback
-        const savedTasks = localStorage.getItem('tasks');
-        if (savedTasks) {
-          setTasks(JSON.parse(savedTasks));
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchTasksData();
   }, []);
 
@@ -71,6 +74,10 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
   useEffect(() => {
     localStorage.setItem('tasks', JSON.stringify(tasks));
   }, [tasks]);
+
+  const refreshTasks = async () => {
+    await fetchTasksData();
+  };
 
   const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -80,7 +87,7 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
       toast.success('Task created successfully!');
     } catch (err) {
       console.error('Error creating task:', err);
-      toast.error('Failed to create task');
+      toast.error('Failed to create task. Is the backend server running?');
       
       // Fallback: create task locally if API fails
       const now = new Date().toISOString();
@@ -91,6 +98,7 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
         updatedAt: now,
       };
       setTasks(prevTasks => [...prevTasks, localTask]);
+      toast.warning('Task saved locally only. Reconnect to backend to sync.');
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +114,7 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
       toast.success('Task updated successfully!');
     } catch (err) {
       console.error('Error updating task:', err);
-      toast.error('Failed to update task');
+      toast.error('Failed to update task. Is the backend server running?');
       
       // Fallback: update locally if API fails
       setTasks(prevTasks =>
@@ -116,6 +124,7 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
             : task
         )
       );
+      toast.warning('Task updated locally only. Reconnect to backend to sync.');
     } finally {
       setIsLoading(false);
     }
@@ -129,10 +138,11 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
       toast.success('Task deleted successfully!');
     } catch (err) {
       console.error('Error deleting task:', err);
-      toast.error('Failed to delete task');
+      toast.error('Failed to delete task. Is the backend server running?');
       
       // Fallback: delete locally if API fails
       setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+      toast.warning('Task removed locally only. Reconnect to backend to sync.');
     } finally {
       setIsLoading(false);
     }
@@ -150,6 +160,7 @@ export const TaskProvider = ({ children }: TaskProviderProps) => {
     getTask,
     isLoading,
     error,
+    refreshTasks,
   };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;

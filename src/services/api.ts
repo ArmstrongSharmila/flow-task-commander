@@ -24,25 +24,50 @@ const normalizeTask = (task: any): Task => {
 };
 
 export const fetchTasks = async (): Promise<Task[]> => {
-  const response = await api.get('/tasks');
-  return response.data.map(normalizeTask);
+  try {
+    const response = await api.get('/tasks');
+    return response.data.map(normalizeTask);
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    throw error;
+  }
 };
 
 export const fetchTask = async (id: string): Promise<Task> => {
-  const response = await api.get(`/tasks/${id}`);
-  return normalizeTask(response.data);
+  try {
+    const response = await api.get(`/tasks/${id}`);
+    return normalizeTask(response.data);
+  } catch (error) {
+    console.error(`Error fetching task ${id}:`, error);
+    throw error;
+  }
 };
 
 export const createTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> => {
-  const response = await api.post('/tasks', task);
-  return normalizeTask(response.data);
+  try {
+    const response = await api.post('/tasks', task);
+    return normalizeTask(response.data);
+  } catch (error) {
+    console.error("Error creating task:", error);
+    throw error;
+  }
 };
 
 export const updateTask = async (id: string, task: Partial<Task>): Promise<Task> => {
-  const response = await api.put(`/tasks/${id}`, task);
-  return normalizeTask(response.data);
+  try {
+    const response = await api.put(`/tasks/${id}`, task);
+    return normalizeTask(response.data);
+  } catch (error) {
+    console.error(`Error updating task ${id}:`, error);
+    throw error;
+  }
 };
 
 export const deleteTask = async (id: string): Promise<void> => {
-  await api.delete(`/tasks/${id}`);
+  try {
+    await api.delete(`/tasks/${id}`);
+  } catch (error) {
+    console.error(`Error deleting task ${id}:`, error);
+    throw error;
+  }
 };
